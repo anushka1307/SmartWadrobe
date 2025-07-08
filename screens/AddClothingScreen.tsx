@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Picker } from '@react-native-picker/picker';
-
+import { useRouter } from "expo-router";
+import { useClothing } from "@/context/ClothingContext";
 import {
   View,
   Text,
@@ -20,7 +21,8 @@ export default function AddClothingScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [category, setCategory] = useState(categories[0]);
-
+  const router = useRouter();
+  const { addClothing } = useClothing();
   async function pickImage() {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
@@ -40,20 +42,17 @@ export default function AddClothingScreen() {
 
   function saveClothing() {
     if (!name.trim()) {
-      Alert.alert('Name required', 'Please enter a name for the clothing item.');
+      Alert.alert("Name required", "Please enter a name for the clothing item.");
       return;
     }
     if (!imageUri) {
-      Alert.alert('Image required', 'Please pick an image.');
+      Alert.alert("Image required", "Please pick an image.");
       return;
     }
 
-    // For now, just log it
-    console.log({ name, category, imageUri });
-    Alert.alert('Saved!', `Clothing item "${name}" saved.`);
-    setName('');
-    setImageUri(null);
-    setCategory(categories[0]);
+    addClothing({ name, category, imageUri });
+    Alert.alert("Saved!", `Clothing item "${name}" saved.`);
+    router.replace('/'); // Go back to Home
   }
 
   return (

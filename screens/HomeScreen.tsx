@@ -1,3 +1,4 @@
+import React from "react";
 import {
   View,
   Text,
@@ -7,28 +8,13 @@ import {
   Pressable,
 } from "react-native";
 import ParallaxHeaderScrollView from "@/components/ParallaxHeaderScrollView";
-import { useNavigation, NavigationProp } from "@react-navigation/native";
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import type { RootTabParamList } from '@/navigation/AppNavigator';
-const clothingItems = [
-  {
-    id: "1",
-    name: "White T-Shirt",
-    imageUri: "https://via.placeholder.com/100",
-  },
-  { id: "2", name: "Blue Jeans", imageUri: "https://via.placeholder.com/100" },
-  {
-    id: "3",
-    name: "Black Hoodie",
-    imageUri: "https://via.placeholder.com/100",
-  },
-];
-
-type HomeScreenNavigationProp = BottomTabNavigationProp<RootTabParamList, 'Home'>;
-
+import { useRouter } from "expo-router";
+import { useClothing } from "@/context/ClothingContext";
 
 export default function HomeScreen() {
-  const navigation = useNavigation<HomeScreenNavigationProp>();
+  const router = useRouter();
+  const { clothes } = useClothing();
+  console.log("Current clothes:", clothes);
   return (
     <ParallaxHeaderScrollView
       headerImage={<View style={{ flex: 1, backgroundColor: "#fafafa" }} />}
@@ -42,7 +28,8 @@ export default function HomeScreen() {
 
         <Text style={styles.sectionTitle}>Your Clothes</Text>
         <FlatList
-          data={clothingItems}
+          data={[...clothes].reverse()} // ✅ Show latest first
+          extraData={clothes.length}
           horizontal
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
@@ -61,7 +48,7 @@ export default function HomeScreen() {
               styles.button,
               pressed && styles.buttonPressed,
             ]}
-            onPress={() => navigation.navigate("Add Clothing")}
+            onPress={() => router.push("/add-clothing")}
           >
             <Text style={styles.buttonText}>Add New Clothing</Text>
           </Pressable>
@@ -71,7 +58,7 @@ export default function HomeScreen() {
               styles.secondaryButton,
               pressed && styles.buttonPressed,
             ]}
-            onPress={() => {}}
+            onPress={() => router.push("/outfit-suggestions")}
           >
             <Text style={[styles.buttonText, styles.secondaryButtonText]}>
               Generate Outfit
