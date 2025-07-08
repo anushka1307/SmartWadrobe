@@ -3,14 +3,67 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const User = require('../models/UserInfo');
+const { OAuth2Client } = require('google-auth-library');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const cors = require('cors');
-
-//allow cross-origin requests
 router.use(cors());
+
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+router.post('/auth/google', async (req, res) => {
+  const { token } = req.body;
+
+  try {
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name, sub: googleId } = payload;
+
+    let user = await User.findOne({ email });
+    
+    if (!user) {
+      user = new User({
+        email,
+        googleId,
+      });
+      await user.save();
+    }
+
+    // Generate JWT token
+    const jwtToken = jwt.sign(
+      { id: user._id, email: user.email }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '1h' }
+    );
+
+    res.json({ 
+      token: jwtToken, 
+      user: { 
+        id: user._id, 
+        email: user.email, 
+        username: user.username 
+      } 
+    });
+
+  } catch (error) {
+    console.error('Google authentication error:', error);
+    res.status(400).json({ error: 'Google authentication failed' });
+  }
+});
+
+router.use('/auth/google/callback', (req, res, next) => {
+  res.removeHeader('Cross-Origin-Opener-Policy');
+  res.removeHeader('Cross-Origin-Embedder-Policy');
+  next();
+});
+
 
 // Registration endpoint
 router.post('/register', async (req, res) => {
