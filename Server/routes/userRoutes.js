@@ -1,9 +1,22 @@
+require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const User = require('../models/UserInfo');
 const { OAuth2Client } = require('google-auth-library');
+const AWS = require('aws-sdk');
+const ClothingAll = require('../models/ClothingAllCollection');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
+
+AWS.config.update({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION
+  });
+  
+const s3 = new AWS.S3();
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -57,6 +70,25 @@ router.post('/auth/google', async (req, res) => {
     res.status(400).json({ error: 'Google authentication failed' });
   }
 });
+
+const authMiddleware = (req, res, next) => {
+  const authHeader = req.header('Authorization');
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    console.error("JWT error:", error.message);
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+};
+
 
 router.use('/auth/google/callback', (req, res, next) => {
   res.removeHeader('Cross-Origin-Opener-Policy');
@@ -121,6 +153,64 @@ router.post('/login', async (req, res) => {
     res.json({ message: 'Login successful', token, userid: user._id });
   } catch (err) {
     res.status(500).json({ error: 'Error logging in', details: err.message });
+  }
+});
+
+
+router.post('/addClothing', authMiddleware, upload.single('image'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const { clothing_name, category } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Image is required.' });
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png'];
+    if (!allowedTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({ error: 'Unsupported file type.' });
+    }
+
+    const s3Params = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: `images/${Date.now()}-${req.file.originalname}`,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype
+    };
+
+    const s3Data = await s3.upload(s3Params).promise();
+
+    const newClothing = new ClothingAll({
+      owner_id: user._id,
+      clothing_name,
+      category,
+      image: s3Data.Location
+    });
+
+    await newClothing.save();
+
+    res.status(201).json({ message: 'Clothing item added successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error adding clothing item', details: err.message });
+  }
+});
+
+router.get('/getClothing', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const clothingItems = await ClothingAll.find({ owner_id: user._id });
+
+    res.json(clothingItems);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching clothing items', details: err.message });
   }
 });
 
