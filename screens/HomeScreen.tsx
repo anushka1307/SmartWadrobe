@@ -16,22 +16,22 @@ import { AuthContext } from "@/context/AuthContext";
 export default function HomeScreen() {
   const router = useRouter();
   const { userToken, loading, signOut } = useContext(AuthContext);
-  const { clothes } = useClothing();
+  const { clothes, fetchClothes } = useClothing();
 
   useEffect(() => {
     if (!loading && !userToken) {
-      router.replace("/login");
+      router.replace("/login"); // 👈 Redirect if not logged in
+    } else if (!loading && userToken) {
+      fetchClothes(); // 👈 Fetch clothes if logged in
     }
   }, [loading, userToken]);
 
   if (loading) {
-    // Render nothing or a loading spinner while loading auth state
-    return null;
-  }
-
-  if (!userToken) {
-    // If no token and loading done, don't render UI
-    return null;
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <Text>Loading...</Text>
+      </View>
+    );
   }
 
   return (
@@ -49,18 +49,30 @@ export default function HomeScreen() {
 
         <Text style={styles.sectionTitle}>Your Clothes</Text>
         <FlatList
-          data={[...clothes].reverse()}
-          extraData={clothes.length}
+          data={[...clothes].reverse().slice(0, 3)}
           horizontal
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           showsHorizontalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <View style={styles.itemCard}>
-              <Image source={{ uri: item.imageUri }} style={styles.itemImage} />
-              <Text style={styles.itemName}>{item.name}</Text>
-            </View>
-          )}
+          renderItem={({ item }) => {
+            return (
+              <View style={styles.itemCard}>
+                <Image
+                  source={{ uri: item.imageUri }}
+                  style={styles.itemImage}
+                  resizeMode="cover"
+                  onError={(e) => {
+                    console.warn(
+                      "Image failed to load:",
+                      item.imageUri,
+                      e.nativeEvent
+                    );
+                  }}
+                />
+                <Text style={styles.itemName}>{item.name}</Text>
+              </View>
+            );
+          }}
         />
 
         <View style={styles.buttonsRow}>
@@ -83,6 +95,18 @@ export default function HomeScreen() {
           >
             <Text style={[styles.buttonText, styles.secondaryButtonText]}>
               Generate Outfit
+            </Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              styles.secondaryButton,
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={() => router.push("/view-wardrobe")}
+          >
+            <Text style={[styles.buttonText, styles.secondaryButtonText]}>
+              View Wardrobe
             </Text>
           </Pressable>
         </View>

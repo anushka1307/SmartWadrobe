@@ -26,7 +26,7 @@ export default function AddClothingScreen() {
   const [name, setName] = useState('');
   const [category, setCategory] = useState(categories[0]);
   const router = useRouter();
-  const { addClothing } = useClothing();
+ 
 
   async function pickImage() {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
