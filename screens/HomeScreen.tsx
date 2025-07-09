@@ -91,10 +91,10 @@ export default function HomeScreen() {
               styles.secondaryButton,
               pressed && styles.buttonPressed,
             ]}
-            onPress={() => router.push("/outfit-suggestions")}
+            onPress={() => router.push("/view-collections")}
           >
             <Text style={[styles.buttonText, styles.secondaryButtonText]}>
-              Generate Outfit
+              View Collections
             </Text>
           </Pressable>
           <Pressable

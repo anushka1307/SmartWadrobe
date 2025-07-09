@@ -23,13 +23,17 @@ export function ClothingProvider({ children }: { children: ReactNode }) {
 
   async function getToken() {
     if (Platform.OS === "web") {
-      // On web, use localStorage
       return localStorage.getItem("userToken");
     } else {
-      // On native, use SecureStore
-      return SecureStore.getItemAsync("userToken");
+      if (SecureStore.getItemAsync) {
+        return SecureStore.getItemAsync("userToken");
+      } else {
+        console.warn("SecureStore not available on this platform.");
+        return null;
+      }
     }
   }
+  
 
   async function fetchClothes() {
     try {

@@ -6,11 +6,17 @@ import {
   Image,
   StyleSheet,
   Platform,
+  Pressable,
+  Alert,
 } from "react-native";
 import { useClothing } from "@/context/ClothingContext";
 import { Picker } from "@react-native-picker/picker";
+import { useRouter } from "expo-router";
+import axios from "axios";
+import * as SecureStore from "expo-secure-store";
 
 export default function ViewWardrobeScreen() {
+  const router = useRouter();
   const { clothes, fetchClothes } = useClothing();
   const [filter, setFilter] = useState("All");
   const [sort, setSort] = useState("Newest");
@@ -25,8 +31,45 @@ export default function ViewWardrobeScreen() {
 
   const sorted = [...filtered].sort((a, b) => {
     if (sort === "Name") return a.name.localeCompare(b.name);
-    return b.id.localeCompare(a.id); // newest first based on id
+    return b.id.localeCompare(a.id); // newest first
   });
+
+  const handleDelete = async (clothingId: string) => {
+    Alert.alert(
+      "Delete Item",
+      "Are you sure you want to delete this clothing item?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const token =
+                Platform.OS === "web"
+                  ? localStorage.getItem("userToken")
+                  : await SecureStore.getItemAsync("userToken");
+
+              await axios.delete(
+                `http://192.168.1.180:3000/api/users/deleteClothing/${clothingId}`,
+                {
+                  headers: { Authorization: `Bearer ${token}` },
+                }
+              );
+
+              await fetchClothes(); // refresh the wardrobe
+            } catch (err: any) {
+              console.error(
+                "Delete failed:",
+                err.response?.data || err.message
+              );
+              Alert.alert("Error", "Failed to delete clothing item.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -65,13 +108,16 @@ export default function ViewWardrobeScreen() {
         numColumns={2}
         contentContainerStyle={styles.grid}
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <Pressable onPress={() => handleDelete(item.id)} style={styles.card}>
             <Image source={{ uri: item.imageUri }} style={styles.image} />
             <Text style={styles.name}>{item.name}</Text>
             <Text style={styles.category}>{item.category}</Text>
-          </View>
+          </Pressable>
         )}
       />
+      <Pressable style={styles.backButton} onPress={() => router.push("/")}>
+        <Text style={styles.backButtonText}>← Back to Home</Text>
+      </Pressable>
     </View>
   );
 }
@@ -81,6 +127,19 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: "#fafafa",
+  },
+  backButton: {
+    marginBottom: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "#0A84FF",
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  backButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
   },
   title: {
     fontSize: 28,
