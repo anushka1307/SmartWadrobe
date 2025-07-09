@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from "expo-router";
 import { useClothing } from "@/context/ClothingContext";
+import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
+
 import {
   View,
   Text,
@@ -19,10 +22,12 @@ const categories = ['Top', 'Bottom', 'Shoes', 'Accessory'];
 
 export default function AddClothingScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageMimeType, setImageMimeType] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [category, setCategory] = useState(categories[0]);
   const router = useRouter();
   const { addClothing } = useClothing();
+
   async function pickImage() {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
@@ -36,11 +41,13 @@ export default function AddClothingScreen() {
     });
 
     if (!pickerResult.canceled) {
-      setImageUri(pickerResult.assets[0].uri);
+      const asset = pickerResult.assets[0];
+      setImageUri(asset.uri);
+      setImageMimeType(asset.type || 'image/jpeg'); // Save mime type here
     }
   }
 
-  function saveClothing() {
+  async function saveClothing() {
     if (!name.trim()) {
       Alert.alert("Name required", "Please enter a name for the clothing item.");
       return;
@@ -50,9 +57,39 @@ export default function AddClothingScreen() {
       return;
     }
 
-    addClothing({ name, category, imageUri });
-    Alert.alert("Saved!", `Clothing item "${name}" saved.`);
-    router.replace('/'); // Go back to Home
+    try {
+      const token = await SecureStore.getItemAsync("userToken");
+      if (!token) {
+        Alert.alert("Authentication error", "User is not logged in.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("clothing_name", name);
+      formData.append("category", category);
+
+      const mimeType = imageMimeType || 'image/jpeg';
+
+      formData.append("image", {
+        uri: imageUri,
+        name: imageUri.split("/").pop(),
+        type: mimeType,
+      } as any);
+
+      const res = await axios.post("http://192.168.1.180:3000/api/users/addClothing", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      Alert.alert("Success", "Clothing item added successfully!");
+      router.replace("/");
+
+    } catch (error: any) {
+      console.error("Upload error:", error?.response?.data || error.message);
+      Alert.alert("Error", error?.response?.data?.error || "Upload failed");
+    }
   }
 
   return (

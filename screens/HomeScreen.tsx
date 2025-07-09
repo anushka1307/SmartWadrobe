@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,15 +6,34 @@ import {
   Image,
   FlatList,
   Pressable,
+  Button,
 } from "react-native";
 import ParallaxHeaderScrollView from "@/components/ParallaxHeaderScrollView";
 import { useRouter } from "expo-router";
 import { useClothing } from "@/context/ClothingContext";
+import { AuthContext } from "@/context/AuthContext";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { userToken, loading, signOut } = useContext(AuthContext);
   const { clothes } = useClothing();
-  console.log("Current clothes:", clothes);
+
+  useEffect(() => {
+    if (!loading && !userToken) {
+      router.replace("/login");
+    }
+  }, [loading, userToken]);
+
+  if (loading) {
+    // Render nothing or a loading spinner while loading auth state
+    return null;
+  }
+
+  if (!userToken) {
+    // If no token and loading done, don't render UI
+    return null;
+  }
+
   return (
     <ParallaxHeaderScrollView
       headerImage={<View style={{ flex: 1, backgroundColor: "#fafafa" }} />}
@@ -26,9 +45,11 @@ export default function HomeScreen() {
           Organize your clothes. Create your style.
         </Text>
 
+        <Button title="Logout" onPress={signOut} color="#FF3B30" />
+
         <Text style={styles.sectionTitle}>Your Clothes</Text>
         <FlatList
-          data={[...clothes].reverse()} // ✅ Show latest first
+          data={[...clothes].reverse()}
           extraData={clothes.length}
           horizontal
           keyExtractor={(item) => item.id}
@@ -71,11 +92,6 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
   container: {
     paddingVertical: 28,
     paddingHorizontal: 20,
@@ -109,7 +125,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     alignItems: "center",
     paddingVertical: 12,
-    elevation: 0, // no shadow for clean look
   },
   itemImage: {
     width: 72,
