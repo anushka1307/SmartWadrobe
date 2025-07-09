@@ -7,6 +7,8 @@ const User = require('../models/UserInfo');
 const { OAuth2Client } = require('google-auth-library');
 const AWS = require('aws-sdk');
 const ClothingAll = require('../models/ClothingAllCollection');
+const Collection = require('../models/Collection');
+const { ObjectId } = mongoose.Types;
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -230,6 +232,63 @@ router.delete('/deleteClothing/:id', authMiddleware, async (req, res) => {
     res.json({ message: 'Clothing item deleted successfully.' });
   } catch (err) {
     res.status(500).json({ error: 'Error deleting clothing item', details: err.message });
+  }
+});
+
+router.post('/addCollection', authMiddleware, async (req, res) => {
+  try {
+    const { collection_name, clothing_id } = req.body;
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const newCollection = new Collection({
+      owner_id: user._id,
+      collection_name,
+      clothing_id
+    });
+
+    await newCollection.save();
+
+    res.status(201).json({ message: 'Collection added successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error adding collection', details: err.message });
+  }
+});
+
+router.get('/getCollections', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const collections = await Collection.find({ owner_id: user._id }).populate('clothing_id');
+
+    res.json(collections);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching collections', details: err.message });
+  }
+});
+
+router.delete('/deleteCollection/:id', authMiddleware, async (req, res) => {
+  try {
+    const collectionId = req.params.id;
+    const collection = await Collection.findById(collectionId);
+    if (!collection) {
+      return res.status(404).json({ error: 'Collection not found.' });
+    }
+
+    await Collection.findOneAndDelete({
+      owner_id: req.user.id,
+      _id: collectionId
+    });
+
+    res.json({ message: 'Collection deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error deleting collection', details: err.message });
   }
 });
 
