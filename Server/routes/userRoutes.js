@@ -214,4 +214,23 @@ router.get('/getClothing', authMiddleware, async (req, res) => {
   }
 });
 
+router.delete('/deleteClothing/:id', authMiddleware, async (req, res) => {
+  try {
+    const clothingId = req.params.id;
+    const clothingItem = await ClothingAll.findById(clothingId);
+    if (!clothingItem) {
+      return res.status(404).json({ error: 'Clothing item not found.' });
+    }
+
+    await ClothingAll.findOneAndDelete({
+      owner_id: req.user.id,
+      _id: clothingId
+    });
+
+    res.json({ message: 'Clothing item deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error deleting clothing item', details: err.message });
+  }
+});
+
 module.exports = router;
