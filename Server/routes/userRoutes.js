@@ -239,24 +239,71 @@ router.post('/addCollection', authMiddleware, async (req, res) => {
   try {
     const { collection_name, clothing_id } = req.body;
 
+    if (!collection_name) {
+      return res.status(400).json({ error: 'Collection name is required' });
+    }
+
+    let clothingArray = [];
+    if (clothing_id) {
+      const rawArray = Array.isArray(clothing_id) ? clothing_id : [clothing_id];
+      clothingArray = rawArray.map(id => {
+        if (mongoose.Types.ObjectId.isValid(id)) {
+          return new mongoose.Types.ObjectId(id);
+        } else {
+          throw new Error(`Invalid ObjectId: ${id}`);
+        }
+      });
+    }
+
+    console.log("Final normalized clothing_id array:", clothingArray);
+
     const user = await User.findById(req.user.id);
     if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    let existingCollection = await Collection.findOne({
+      owner_id: user._id,
+      collection_name
+    });
+
+    if (existingCollection) {
+      if (clothingArray.length > 0) {
+        const newItems = clothingArray.filter(
+          (item) => !existingCollection.clothing_id.includes(item.toString())
+        );
+
+        if (newItems.length > 0) {
+          existingCollection.clothing_id.push(...newItems);
+          await existingCollection.save();
+          return res.status(200).json({ message: 'Item(s) added to existing collection' });
+        }
+      }
+
+      return res.status(200).json({ message: 'Collection already exists' });
     }
 
     const newCollection = new Collection({
       owner_id: user._id,
       collection_name,
-      clothing_id
+      clothing_id: clothingArray
     });
+
+    console.log("Saving new collection:", newCollection);
 
     await newCollection.save();
 
-    res.status(201).json({ message: 'Collection added successfully' });
+    res.status(201).json({ message: 'New collection created successfully' });
   } catch (err) {
-    res.status(500).json({ error: 'Error adding collection', details: err.message });
+    console.error("Error while creating collection:", err);
+    res.status(500).json({
+      error: 'Server error while creating collection',
+      details: err.message
+    });
   }
 });
+
+
 
 router.get('/getCollections', authMiddleware, async (req, res) => {
   try {
