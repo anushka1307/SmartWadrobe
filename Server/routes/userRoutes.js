@@ -320,6 +320,21 @@ router.get('/getCollections', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/getCollection/:id', authMiddleware, async (req, res) => {
+  try {
+    const collectionId = req.params.id;
+    const collection = await Collection.findOne({ _id: collectionId, owner_id: req.user.id }).populate('clothing_id');
+
+    if (!collection) {
+      return res.status(404).json({ error: 'Collection not found.' });
+    }
+
+    res.json(collection);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching collection', details: err.message });
+  }
+});
+
 router.delete('/deleteCollection/:id', authMiddleware, async (req, res) => {
   try {
     const collectionId = req.params.id;
