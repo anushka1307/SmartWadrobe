@@ -6,6 +6,7 @@ const ClothingAllSchema = new Schema({
     clothing_name: { type: String }, 
     category: { type: String, enum: ['Top', 'Bottom', 'Dresses', 'Shoes', 'Accessory'], required: true },
     image: {type: String, required: true},
+    collection_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Collection' }]
 });
 
 const ClothingAll = mongoose.model('ClothingAll', ClothingAllSchema);

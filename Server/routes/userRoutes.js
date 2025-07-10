@@ -243,6 +243,7 @@ router.post('/addCollection', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Collection name is required' });
     }
 
+    // Normalize and validate clothing_id into ObjectId array
     let clothingArray = [];
     if (clothing_id) {
       const rawArray = Array.isArray(clothing_id) ? clothing_id : [clothing_id];
@@ -254,8 +255,6 @@ router.post('/addCollection', authMiddleware, async (req, res) => {
         }
       });
     }
-
-    console.log("Final normalized clothing_id array:", clothingArray);
 
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -276,12 +275,24 @@ router.post('/addCollection', authMiddleware, async (req, res) => {
         if (newItems.length > 0) {
           existingCollection.clothing_id.push(...newItems);
           await existingCollection.save();
-          return res.status(200).json({ message: 'Item(s) added to existing collection' });
+
+          // ✨ Update clothing docs with new collection ID
+          await Promise.all(
+            newItems.map(async (clothingId) => {
+              const clothing = await ClothingAll.findById(clothingId);
+              if (clothing && !clothing.collection_ids?.includes(existingCollection._id)) {
+                clothing.collection_ids = clothing.collection_ids || [];
+                clothing.collection_ids.push(existingCollection._id);
+                await clothing.save();
+              }
+            })
+          );
         }
       }
 
-      return res.status(200).json({ message: 'Collection already exists' });
+      return res.status(200).json({ message: 'Item(s) added to existing collection' });
     }
+
 
     const newCollection = new Collection({
       owner_id: user._id,
@@ -289,9 +300,22 @@ router.post('/addCollection', authMiddleware, async (req, res) => {
       clothing_id: clothingArray
     });
 
-    console.log("Saving new collection:", newCollection);
-
     await newCollection.save();
+
+    if (clothingArray.length > 0) {
+      await Promise.all(
+        clothingArray.map(async (clothingId) => {
+          const clothing = await ClothingAll.findById(clothingId);
+          if (clothing) {
+            clothing.collection_ids = clothing.collection_ids || [];
+            if (!clothing.collection_ids.includes(newCollection._id)) {
+              clothing.collection_ids.push(newCollection._id);
+              await clothing.save();
+            }
+          }
+        })
+      );
+    }
 
     res.status(201).json({ message: 'New collection created successfully' });
   } catch (err) {
@@ -302,7 +326,6 @@ router.post('/addCollection', authMiddleware, async (req, res) => {
     });
   }
 });
-
 
 
 router.get('/getCollections', authMiddleware, async (req, res) => {
